@@ -47,7 +47,7 @@ void setBorder(int32_t* board);
 
 int32_t Render(SDL_Window* pWindow, SDL_Renderer* pRenderer, SDL_Texture* pTexture, int32_t* board);
 
-
+void drawScreen(SDL_Window* pWindow, SDL_Renderer* pRenderer, SDL_Texture* pTexture, int32_t* board);
 
 
 SDL_Window* CreateCenteredWindow()
@@ -280,6 +280,32 @@ inline int32_t getPosition(int32_t* board, int32_t x, int32_t y)
 }
 
 
+void drawScreen(SDL_Window* pWindow, SDL_Renderer* pRenderer, SDL_Texture* pTexture, int32_t* board)
+{//empties board
+    SDL_SetRenderDrawColor(pRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+    SDL_RenderClear(pRenderer);
+    for (int y = 0; y < SCREEN_HEIGHT; y++)
+    {
+        for (int x = 0; x < SCREEN_WIDTH; x++)
+        {
+            switch (getPosition(board,x, y))
+            {
+            case 1:
+                SDL_SetRenderDrawColor(pRenderer, 144, 144, 144, 255);
+                SDL_RenderDrawPoint(pRenderer, x, y);
+                break;
+            case -1:
+                SDL_SetRenderDrawColor(pRenderer, 0, 0, 0, 255);
+                SDL_RenderDrawPoint(pRenderer, x, y);
+                break;
+            }
+        }
+    }
+    SDL_RenderPresent(pRenderer);
+}
+
+
+
 // Call this within every render loop
 // Fills screen with randomly generated colored pixels
 int32_t Render(SDL_Window* pWindow, SDL_Renderer* pRenderer, SDL_Texture* pTexture, int32_t* board)
@@ -351,17 +377,45 @@ int main(int argc, char* args[])
     
     emptyBoard(board);
     setBorder(board);
-    cout << board[0] << endl;
-    cout << board[4] << endl;
+ 
     bool running = true;
-    setPosition(board, SCREEN_WIDTH / 2, 4, 1);
+    bool firstFrame = true;
+
+    uint64_t totalTicks = 0;
+    uint64_t totalFramesRendered = 0;
+    uint64_t lastTick = 0;
+
+
     while (running)
     {
-            if (e(Render(pWindow, pRenderer, pTexture, board), "Render failed\n")) break;
+        if (!firstFrame)
+        {
+            //if (e(Render(pWindow, pRenderer, pTexture, board), "Render failed\n")) break; 
+            drawScreen(pWindow, pRenderer, pTexture, board);
             running = ProcessInput();
             runSim(board);
             setPosition(board, SCREEN_WIDTH / 2, 4, 1);
+            uint64_t currentTick = SDL_GetPerformanceCounter();
+            totalTicks += currentTick - lastTick;
+            lastTick = currentTick;
+            ++totalFramesRendered;
+            if (getPosition(board, SCREEN_WIDTH / 2, SCREEN_HEIGHT - 2) == 1) //end it when a sand hits the ground
+            {
+                running = false;
+            }
+        }
+        else
+        {
+            lastTick = SDL_GetPerformanceCounter();
+            firstFrame = false;
+        }
 
     }
+    // Display render and timing information
+    std::cout << "Total Frames:    " << totalFramesRendered << "\n";
+    std::cout << "Total Time:      " << static_cast<double>(totalTicks) / SDL_GetPerformanceFrequency() << "s\n";
+    std::cout << "Average FPS:     " << static_cast<double>(totalFramesRendered) * SDL_GetPerformanceFrequency() / totalTicks << "\n";
+
+    Shutdown(&pWindow, &pRenderer, &pTexture);
     return 0;
 }
